@@ -5,9 +5,11 @@
 // aperte come file locale (file://), dove però l'offline funziona comunque perché il file è già
 // interamente sul dispositivo.
 
-const CACHE_NAME = 'ai901-quiz-v1';
+const CACHE_NAME = 'ai901-quiz-v2';
 const ASSETS = [
   './AI901-Quiz-Web.html',
+  './exam-config.js',
+  './exam-questions.js',
   './manifest.webmanifest',
   './icon-192.png',
   './icon-512.png',
