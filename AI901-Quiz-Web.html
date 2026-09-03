@@ -359,6 +359,68 @@
   @media (min-width: 600px) {
     .answer-opt .opt-en { font-size: 1.02rem; }
   }
+
+  .result-warning {
+    border-color: var(--amber);
+    background: rgba(242,181,68,0.12);
+    color: var(--amber);
+    font-size: 0.9rem;
+    line-height: 1.45;
+    text-align: center;
+  }
+  .btn-secondary:disabled { opacity: 0.4; cursor: default; }
+
+  .history-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .hstat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    text-align: center;
+  }
+  .hstat-val { font-size: 1.3rem; font-weight: 800; }
+  .hstat-val.ok { color: var(--green); }
+  .hstat-lbl { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+
+  .empty-hint {
+    color: var(--muted);
+    text-align: center;
+    padding: 24px 8px;
+    font-size: 0.9rem;
+  }
+
+  .history-row {
+    border-bottom: 1px solid var(--border);
+    padding: 14px 0;
+  }
+  .history-row:last-child { border-bottom: none; }
+  .hr-date { font-size: 0.78rem; color: var(--muted); margin-bottom: 8px; }
+  .hr-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px 10px;
+    margin-bottom: 8px;
+  }
+  .hr-grid > div { display: flex; flex-direction: column; }
+  .hr-lbl { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .hr-val { font-size: 0.95rem; font-weight: 700; }
+  .hr-esito {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .hr-esito.ok { color: var(--green); background: var(--green-bg); }
+  .hr-esito.bad { color: var(--red); background: var(--red-bg); }
+
+  .rq-progress { font-size: 0.85rem; color: var(--accent2); font-weight: 600; margin-top: 8px; }
+  .rq-meta { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -388,9 +450,12 @@
     <div class="card">
       <h2 class="section-title">Numero di domande</h2>
       <div class="count-grid" id="count-grid"></div>
+      <button class="btn-secondary" id="btn-solo-ripasso" onclick="startReviewOnlyQuiz()" title="Avvia subito un test con tutte le domande attualmente in ripasso, nella modalità selezionata sopra.">Solo ripasso</button>
     </div>
 
     <button class="btn-primary" id="btn-start" onclick="startQuiz()">Inizia test</button>
+    <button class="btn-secondary" onclick="showHistory()">Storico risultati</button>
+    <button class="btn-secondary" id="btn-show-reviewqueue" onclick="showReviewQueue()">Domande in ripasso</button>
 
     <footer class="foot">484 domande disponibili &middot; generato il 01/09/2026, aggiornato il 03/09/2026</footer>
   </div>
@@ -426,6 +491,9 @@
     <header class="top">
       <h1>Risultato</h1>
     </header>
+    <div class="card result-warning" id="result-warning" style="display:none;">
+      ⚠️ Test incompleto: non hai risposto a tutte le domande, quindi questo risultato non è stato salvato nello storico.
+    </div>
     <div class="card">
       <div class="score-circle" id="score-circle">
         <div class="val" id="score-val">0</div>
@@ -438,10 +506,13 @@
       <div class="stat-row"><span>Risposte sbagliate</span><span class="v" id="stat-wrong">0</span></div>
       <div class="stat-row"><span>Senza risposta</span><span class="v" id="stat-unanswered">0</span></div>
       <div class="stat-row"><span>Modalità</span><span class="v" id="stat-mode">Allenamento</span></div>
+      <div class="stat-row"><span>Durata</span><span class="v" id="stat-duration">-</span></div>
+      <div class="stat-row"><span>Media/risposta</span><span class="v" id="stat-avg">-</span></div>
     </div>
 
     <button class="btn-primary" onclick="showReview()">Rivedi risposte</button>
     <button class="btn-secondary" onclick="goHome()">Nuovo test</button>
+    <button class="btn-ghost" onclick="showHistory()">Vai allo storico risultati</button>
   </div>
 
   <!-- REVIEW -->
@@ -450,6 +521,38 @@
       <h1>Rivedi risposte</h1>
     </header>
     <div class="card" id="review-list"></div>
+    <button class="btn-secondary" onclick="goHome()">Torna alla home</button>
+  </div>
+
+  <!-- HISTORY -->
+  <div class="screen" id="screen-history">
+    <header class="top">
+      <h1>Storico risultati</h1>
+    </header>
+
+    <div class="history-stats" id="history-stats">
+      <div class="hstat"><div class="hstat-val" id="hist-count">0</div><div class="hstat-lbl">Test effettuati</div></div>
+      <div class="hstat"><div class="hstat-val ok" id="hist-best">0</div><div class="hstat-lbl">Miglior punteggio</div></div>
+      <div class="hstat"><div class="hstat-val" id="hist-avg">0</div><div class="hstat-lbl">Punteggio medio</div></div>
+      <div class="hstat"><div class="hstat-val" id="hist-passrate">0%</div><div class="hstat-lbl">Test superati</div></div>
+    </div>
+
+    <p class="empty-hint" id="history-empty">Nessun test svolto finora.</p>
+    <div class="card" id="history-list" style="display:none;"></div>
+
+    <button class="btn-secondary" onclick="goHome()">Torna alla home</button>
+  </div>
+
+  <!-- REVIEW QUEUE -->
+  <div class="screen" id="screen-reviewqueue">
+    <header class="top">
+      <h1>Domande in ripasso</h1>
+      <p><span id="reviewqueue-count">0</span> domande attualmente in ripasso &middot; servono 5 risposte corrette consecutive per uscire</p>
+    </header>
+
+    <p class="empty-hint" id="reviewqueue-empty">Nessuna domanda in ripasso al momento.</p>
+    <div class="card" id="reviewqueue-list" style="display:none;"></div>
+
     <button class="btn-secondary" onclick="goHome()">Torna alla home</button>
   </div>
 
@@ -466,6 +569,7 @@ let state = {
   pool: [],
   current: 0,
   answers: [],      // per question: {selected: [idx,...], locked: bool, confirmed: bool}
+  startedAt: null,  // Date.now() all'avvio del test, usato per calcolare la durata (cronometro silenzioso)
 };
 
 function shuffle(arr) {
@@ -475,6 +579,116 @@ function shuffle(arr) {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+// ===================== Storico risultati e ripasso mirato (localStorage) =====================
+// Stessa logica dell'app desktop AI901ExamSimulator (results.json / progress.json), riprodotta
+// qui con localStorage: dati persistenti sul dispositivo/browser corrente (non sincronizzati
+// altrove). Nessun uso di sessionStorage: tutto e' pensato per sopravvivere alla chiusura della
+// scheda/browser, che e' l'obiettivo di uno "storico" e di una coda di ripasso persistenti.
+
+const LS_RESULTS_KEY = 'ai901_history_results_v1';
+const LS_PROGRESS_KEY = 'ai901_review_progress_v1';
+const REVIEW_WEIGHT_MULTIPLIER = 4.0;   // peso di estrazione delle domande in ripasso (vs 1.0 normale)
+const REVIEW_REQUIRED_CONSECUTIVE = 5;  // risposte corrette consecutive per uscire dal ripasso
+
+function safeGetLS(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function safeSetLS(key, value) {
+  try { localStorage.setItem(key, value); return true; }
+  catch (e) { console.warn('Impossibile salvare in localStorage (spazio esaurito o non disponibile):', e); return false; }
+}
+
+function loadResults() {
+  try {
+    const raw = safeGetLS(LS_RESULTS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) { return []; }
+}
+function saveResults(arr) { safeSetLS(LS_RESULTS_KEY, JSON.stringify(arr)); }
+
+function loadProgress() {
+  try {
+    const raw = safeGetLS(LS_PROGRESS_KEY);
+    const obj = raw ? JSON.parse(raw) : {};
+    return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+  } catch (e) { return {}; }
+}
+function saveProgress(obj) { safeSetLS(LS_PROGRESS_KEY, JSON.stringify(obj)); }
+
+// Stato di ripasso corrente: chiave = reviewKeyFor(domanda), valore = {questionKey,
+// consecutiveCorrectCount, totalWrongCount, lastWrongAt, lastAnsweredAt}. Contiene SOLO le
+// domande attualmente in ripasso (stessa convenzione minimale di progress.json nell'app).
+let reviewProgress = loadProgress();
+
+// Identificativo stabile di una domanda, basato sul testo della domanda + testo delle risposte
+// (non solo il testo della domanda: due domande possono avere lo stesso enunciato ma risposte
+// diverse). Non e' SHA-256 come nell'app desktop (qui non serve crittografia, solo un ID stabile
+// e a bassa probabilita' di collisione su ~500 domande), ma lo stesso concetto di ReviewKey.
+function reviewKeyFor(q) {
+  if (q.__rk) return q.__rk;
+  const s = q.question + '|' + q.answers.map(a => a.text).join('|');
+  let h1 = 0xdeadbeef ^ s.length, h2 = 0x41c6ce57 ^ s.length;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  q.__rk = (h1 >>> 0).toString(16).padStart(8, '0') + (h2 >>> 0).toString(16).padStart(8, '0');
+  return q.__rk;
+}
+
+// Formattazione durata "m:ss" (es. "8:04") o "h:mm:ss" se supera un'ora (es. "1:32:07").
+function formatDuration(totalSecondsRaw) {
+  let totalSeconds = Math.round(totalSecondsRaw);
+  if (!isFinite(totalSeconds) || totalSeconds < 0) totalSeconds = 0;
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad2 = n => String(n).padStart(2, '0');
+  return hours > 0 ? (hours + ':' + pad2(minutes) + ':' + pad2(seconds)) : (minutes + ':' + pad2(seconds));
+}
+
+// Formattazione media per risposta: secondi con una cifra decimale sotto il minuto (es. "8,4 sec"),
+// altrimenti minuti:secondi seguiti da "min" (es. "1:15 min"). "-" per un valore non calcolabile.
+function formatAverage(averageSeconds) {
+  if (!isFinite(averageSeconds) || averageSeconds < 0) return '-';
+  if (averageSeconds < 60) {
+    const rounded = Math.round(averageSeconds * 10) / 10;
+    const text = (Math.abs(rounded % 1) < 1e-9) ? String(Math.round(rounded)) : rounded.toFixed(1).replace('.', ',');
+    return text + ' sec';
+  }
+  return formatDuration(averageSeconds) + ' min';
+}
+
+// Data/ora in formato "dd/MM/yyyy HH:mm", stesso formato dello Storico nell'app desktop.
+function formatDateTime(iso) {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '-';
+  const pad2 = n => String(n).padStart(2, '0');
+  return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+}
+
+// Campionamento pesato senza reinserimento (stesso algoritmo "A-Res" dell'app desktop): ogni
+// domanda riceve una chiave U^(1/peso) con U~Uniform(0,1) e peso = 4x per le domande in ripasso,
+// 1x per le altre; si prendono le N chiavi piu' alte, poi il sottoinsieme scelto viene rimescolato
+// uniformemente cosi' l'ordine di presentazione non rivela quali erano "pesate".
+function weightedSample(pool, n) {
+  const withKeys = pool.map(q => {
+    const rk = reviewKeyFor(q);
+    const weight = reviewProgress[rk] ? REVIEW_WEIGHT_MULTIPLIER : 1.0;
+    const u = Math.random();
+    const key = Math.pow(u, 1 / weight);
+    return { q, key };
+  });
+  withKeys.sort((a, b) => b.key - a.key);
+  const chosen = withKeys.slice(0, n).map(x => x.q);
+  return shuffle(chosen);
 }
 
 function buildCountGrid() {
@@ -510,16 +724,44 @@ function showScreen(id) {
 }
 
 function goHome() {
+  refreshHomeReviewUI();
   showScreen('screen-home');
+}
+
+// Aggiorna lo stato del pulsante "Solo ripasso" (disabilitato se non ci sono domande in ripasso)
+// e il testo del pulsante "Domande in ripasso" (con conteggio, come nell'app desktop).
+function refreshHomeReviewUI() {
+  const count = Object.keys(reviewProgress).length;
+  const soloBtn = document.getElementById('btn-solo-ripasso');
+  if (soloBtn) soloBtn.disabled = count === 0;
+  const reviewBtn = document.getElementById('btn-show-reviewqueue');
+  if (reviewBtn) reviewBtn.textContent = count > 0 ? ('Domande in ripasso (' + count + ')') : 'Domande in ripasso';
+}
+
+function beginQuizWithPool(pool) {
+  state.pool = pool;
+  state.current = 0;
+  state.answers = state.pool.map(q => ({ selected: [], locked: false, confirmed: false }));
+  state.startedAt = Date.now();
+  showScreen('screen-quiz');
+  renderQuestion();
 }
 
 function startQuiz() {
   const n = Math.min(state.count, QUESTIONS.length);
-  state.pool = shuffle(QUESTIONS).slice(0, n);
-  state.current = 0;
-  state.answers = state.pool.map(q => ({ selected: [], locked: false, confirmed: false }));
-  showScreen('screen-quiz');
-  renderQuestion();
+  beginQuizWithPool(weightedSample(QUESTIONS, n));
+}
+
+// Avvia subito un test con TUTTE le domande attualmente in ripasso (ignora "Numero di domande"),
+// nella modalita' correntemente selezionata. Nessuna modifica al campionamento serve qui: con
+// questionCount == pool.length il campionamento pesato equivale a un mescolamento uniforme.
+function startReviewOnlyQuiz() {
+  const reviewPool = QUESTIONS.filter(q => reviewProgress[reviewKeyFor(q)]);
+  if (reviewPool.length === 0) {
+    alert('Non ci sono domande in ripasso al momento.');
+    return;
+  }
+  beginQuizWithPool(shuffle(reviewPool));
 }
 
 function isMulti(q) {
@@ -673,6 +915,11 @@ function nextQuestion() {
 }
 
 function endQuizEarly() {
+  const unanswered = state.answers.filter(a => !a.locked).length;
+  if (unanswered > 0) {
+    const ok = confirm('Ci sono ancora ' + unanswered + ' domande senza risposta. Vuoi comunque terminare il test? Il risultato non verrà salvato nello storico.');
+    if (!ok) return;
+  }
   finishQuiz();
 }
 
@@ -681,6 +928,40 @@ function isAnswerCorrect(q, st) {
   const correctIdx = q.answers.map((a, i) => a.correct ? i : -1).filter(i => i >= 0);
   if (correctIdx.length !== st.selected.length) return false;
   return correctIdx.every(i => st.selected.includes(i));
+}
+
+// Aggiorna il progresso di ripasso per le sole domande a cui e' stata data una risposta (le
+// domande mai raggiunte, possibili solo in un test terminato in anticipo, vengono saltate: ne'
+// premiate ne' penalizzate). Stessa logica di MainViewModel.UpdateReviewProgress nell'app desktop.
+function updateReviewProgress() {
+  const now = new Date().toISOString();
+  state.pool.forEach((q, i) => {
+    const st = state.answers[i];
+    if (!st.locked) return;
+
+    const key = reviewKeyFor(q);
+    const correct = isAnswerCorrect(q, st);
+
+    if (correct) {
+      const progress = reviewProgress[key];
+      if (!progress) return; // mai in ripasso: una risposta corretta non lo fa iniziare
+      progress.consecutiveCorrectCount++;
+      progress.lastAnsweredAt = now;
+      if (progress.consecutiveCorrectCount >= REVIEW_REQUIRED_CONSECUTIVE) {
+        delete reviewProgress[key]; // ripasso completato, torna al peso normale
+      }
+    } else {
+      let progress = reviewProgress[key];
+      if (!progress) {
+        progress = { questionKey: key, consecutiveCorrectCount: 0, totalWrongCount: 0, lastWrongAt: null, lastAnsweredAt: null };
+        reviewProgress[key] = progress;
+      }
+      progress.consecutiveCorrectCount = 0; // un errore azzera SEMPRE il conteggio
+      progress.totalWrongCount++;
+      progress.lastWrongAt = now;
+      progress.lastAnsweredAt = now;
+    }
+  });
 }
 
 function finishQuiz() {
@@ -696,6 +977,8 @@ function finishQuiz() {
   const passingScore = SETTINGS.passingScore;
   const score = Math.round((correct / total) * maxScore);
   const passed = score >= passingScore;
+  const isComplete = unanswered === 0;
+  const durationSeconds = Math.max(0, Math.round(((Date.now() - (state.startedAt || Date.now())) / 1000)));
 
   document.getElementById('score-val').textContent = score;
   document.getElementById('score-max').textContent = '/ ' + maxScore;
@@ -707,6 +990,30 @@ function finishQuiz() {
   document.getElementById('stat-wrong').textContent = wrong;
   document.getElementById('stat-unanswered').textContent = unanswered;
   document.getElementById('stat-mode').textContent = state.mode === 'allenamento' ? 'Allenamento' : 'Simulazione';
+  document.getElementById('stat-duration').textContent = formatDuration(durationSeconds);
+  document.getElementById('stat-avg').textContent = formatAverage(total === 0 ? NaN : durationSeconds / total);
+
+  const warning = document.getElementById('result-warning');
+  if (warning) warning.style.display = isComplete ? 'none' : 'block';
+
+  // Test completo -> salvato nello storico. Test troncato con "Termina" -> NON salvato (stessa
+  // regola dell'app desktop), ma il progresso di ripasso si aggiorna comunque qui sotto.
+  if (isComplete) {
+    const results = loadResults();
+    results.push({
+      date: new Date().toISOString(),
+      questionCount: total,
+      correctAnswers: correct,
+      wrongAnswers: wrong,
+      score: score,
+      passed: passed,
+      durationSeconds: durationSeconds
+    });
+    saveResults(results);
+  }
+
+  updateReviewProgress();
+  saveProgress(reviewProgress);
 
   showScreen('screen-result');
 }
@@ -806,7 +1113,131 @@ function showReview() {
   showScreen('screen-review');
 }
 
+// ===================== Storico risultati =====================
+function showHistory() {
+  const results = loadResults().slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+  const hasResults = results.length > 0;
+
+  document.getElementById('history-empty').style.display = hasResults ? 'none' : 'block';
+  document.getElementById('history-stats').style.display = hasResults ? 'grid' : 'none';
+  document.getElementById('history-list').style.display = hasResults ? 'block' : 'none';
+
+  if (hasResults) {
+    const testCount = results.length;
+    const bestScore = Math.max(...results.map(r => r.score));
+    const avgScore = Math.round(results.reduce((s, r) => s + r.score, 0) / testCount);
+    const passRate = results.filter(r => r.passed).length * 100 / testCount;
+
+    document.getElementById('hist-count').textContent = testCount;
+    document.getElementById('hist-best').textContent = bestScore;
+    document.getElementById('hist-avg').textContent = avgScore;
+    document.getElementById('hist-passrate').textContent = (Math.round(passRate * 10) / 10) + '%';
+
+    const list = document.getElementById('history-list');
+    list.innerHTML = '';
+    results.forEach(r => {
+      const hasDuration = typeof r.durationSeconds === 'number';
+      const durationText = hasDuration ? formatDuration(r.durationSeconds) : 'N/D';
+      const avgText = hasDuration ? formatAverage(r.questionCount === 0 ? NaN : r.durationSeconds / r.questionCount) : 'N/D';
+
+      const row = document.createElement('div');
+      row.className = 'history-row';
+
+      const dateEl = document.createElement('div');
+      dateEl.className = 'hr-date';
+      dateEl.textContent = formatDateTime(r.date);
+      row.appendChild(dateEl);
+
+      const grid = document.createElement('div');
+      grid.className = 'hr-grid';
+      const cells = [
+        ['Domande', r.questionCount],
+        ['Corrette', r.correctAnswers],
+        ['Errate', r.wrongAnswers],
+        ['Punteggio', r.score],
+        ['Durata', durationText],
+        ['Media/risposta', avgText],
+      ];
+      cells.forEach(([lbl, val]) => {
+        const cell = document.createElement('div');
+        const lblEl = document.createElement('span');
+        lblEl.className = 'hr-lbl';
+        lblEl.textContent = lbl;
+        const valEl = document.createElement('span');
+        valEl.className = 'hr-val';
+        valEl.textContent = val;
+        cell.appendChild(lblEl);
+        cell.appendChild(valEl);
+        grid.appendChild(cell);
+      });
+      row.appendChild(grid);
+
+      const esito = document.createElement('span');
+      esito.className = 'hr-esito ' + (r.passed ? 'ok' : 'bad');
+      esito.textContent = r.passed ? 'SUPERATO' : 'NON SUPERATO';
+      row.appendChild(esito);
+
+      list.appendChild(row);
+    });
+  }
+
+  showScreen('screen-history');
+}
+
+// ===================== Domande in ripasso =====================
+function showReviewQueue() {
+  const map = {};
+  QUESTIONS.forEach(q => { map[reviewKeyFor(q)] = q; });
+
+  const rows = Object.keys(reviewProgress)
+    .filter(key => map[key])
+    .map(key => ({ q: map[key], p: reviewProgress[key] }))
+    .sort((a, b) => {
+      if (a.p.consecutiveCorrectCount !== b.p.consecutiveCorrectCount) {
+        return a.p.consecutiveCorrectCount - b.p.consecutiveCorrectCount;
+      }
+      return new Date(b.p.lastWrongAt || 0) - new Date(a.p.lastWrongAt || 0);
+    });
+
+  document.getElementById('reviewqueue-empty').style.display = rows.length === 0 ? 'block' : 'none';
+  document.getElementById('reviewqueue-list').style.display = rows.length === 0 ? 'none' : 'block';
+  document.getElementById('reviewqueue-count').textContent = rows.length;
+
+  const list = document.getElementById('reviewqueue-list');
+  list.innerHTML = '';
+  rows.forEach(({ q, p }) => {
+    const item = document.createElement('div');
+    item.className = 'review-item';
+
+    const qEn = document.createElement('p');
+    qEn.className = 'q-text-en';
+    qEn.textContent = q.question;
+    item.appendChild(qEn);
+    if (q.questionIt && q.questionIt.trim() !== q.question.trim()) {
+      const qIt = document.createElement('p');
+      qIt.className = 'q-text-it';
+      qIt.textContent = q.questionIt;
+      item.appendChild(qIt);
+    }
+
+    const progressLine = document.createElement('div');
+    progressLine.className = 'rq-progress';
+    progressLine.textContent = p.consecutiveCorrectCount + '/' + REVIEW_REQUIRED_CONSECUTIVE + ' risposte corrette consecutive';
+    item.appendChild(progressLine);
+
+    const meta = document.createElement('div');
+    meta.className = 'rq-meta';
+    meta.textContent = 'Sbagliata ' + p.totalWrongCount + (p.totalWrongCount === 1 ? ' volta' : ' volte') + ' in totale · Ultimo errore: ' + formatDateTime(p.lastWrongAt);
+    item.appendChild(meta);
+
+    list.appendChild(item);
+  });
+
+  showScreen('screen-reviewqueue');
+}
+
 buildCountGrid();
+refreshHomeReviewUI();
 </script>
 </body>
 </html>
