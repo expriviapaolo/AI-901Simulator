@@ -1,0 +1,19 @@
+{
+  "name": "AI-901 Exam Simulator",
+  "short_name": "AI-901",
+  "description": "Simulatore di esame Microsoft Azure AI Fundamentals (AI-901), con storico risultati e ripasso mirato.",
+  "start_url": "./AI901-Quiz-Web.html",
+  "scope": "./",
+  "id": "./AI901-Quiz-Web.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1420",
+  "theme_color": "#0f1420",
+  "lang": "it",
+  "icons": [
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
+    { "src": "icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
+  ]
+}
