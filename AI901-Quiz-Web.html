@@ -112,6 +112,42 @@
     font-weight: 600;
     color: var(--text);
   }
+  /* Banner "sei offline" e "nuova versione disponibile": persistenti sopra la toolbar, visibili
+     su qualunque schermata, non invasivi (una riga, nessun blocco dell'interfaccia). */
+  .status-banner {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 10px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    margin-top: 10px;
+  }
+  .status-banner.show { display: flex; }
+  .status-banner.offline {
+    background: var(--panel2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .status-banner.update {
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid rgba(53,194,106,0.35);
+    justify-content: space-between;
+  }
+  .status-banner.update button {
+    border: 1px solid var(--green);
+    background: transparent;
+    color: var(--green);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
   .screen { display: none; flex: 1; flex-direction: column; }
   .screen.active { display: flex; }
 
@@ -531,12 +567,30 @@
     </div>
   </div>
 
+  <div class="status-banner offline" id="offline-banner">📡 Sei offline — i dati già caricati funzionano comunque.</div>
+  <div class="status-banner update" id="update-banner">
+    <span>🔄 È disponibile una nuova versione delle domande.</span>
+    <button type="button" onclick="applyPendingUpdate()">Aggiorna ora</button>
+  </div>
+
   <!-- HOME -->
   <div class="screen active" id="screen-home">
     <header class="top">
       <h1 id="app-title">AI-901 Exam Simulator</h1>
       <p id="app-subtitle">Microsoft Azure AI Fundamentals &middot; versione web</p>
     </header>
+
+    <!-- Nascosta finche' non c'e' almeno un test completato (vedi refreshStreakUI()), per non
+         ingombrare la Home al primo utilizzo. -->
+    <div class="card" id="streak-card" style="display:none;">
+      <h2 class="section-title">Il tuo percorso</h2>
+      <div class="history-stats">
+        <div class="hstat"><div class="hstat-val" id="streak-current">0</div><div class="hstat-lbl">🔥 Giorni di fila</div></div>
+        <div class="hstat"><div class="hstat-val" id="streak-best">0</div><div class="hstat-lbl">🏆 Record giorni di fila</div></div>
+        <div class="hstat"><div class="hstat-val" id="streak-tests">0</div><div class="hstat-lbl">✅ Test completati</div></div>
+        <div class="hstat"><div class="hstat-val" id="streak-reviewed">0</div><div class="hstat-lbl">🎯 Domande superate in ripasso</div></div>
+      </div>
+    </div>
 
     <div class="card">
       <h2 class="section-title">Modalità</h2>
@@ -722,9 +776,47 @@ function downloadOfflineCopy() {
 // il file e' gia' interamente sul dispositivo).
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* nessun problema: la pagina funziona comunque senza cache offline aggiuntiva */ });
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      // Se la pagina non ha ancora un controller attivo, questa è la primissima visita/
+      // installazione: non c'è nessun "aggiornamento" da segnalare. Il banner "nuova versione
+      // disponibile" ha senso solo per le visite successive, quando sw.js viene ripubblicato
+      // (es. dopo aver aggiornato exam-questions.js) e il browser rileva byte diversi.
+      if (!navigator.serviceWorker.controller) return;
+
+      reg.addEventListener('updatefound', () => {
+        const newWorker = reg.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          // sw.js corrente chiama gia' self.skipWaiting()/clients.claim() in automatico, quindi
+          // il nuovo worker si attiva da solo (non serve gestire l'handshake skipWaiting qui):
+          // basta segnalare all'utente che i dati/pagina già in memoria sono superati e un
+          // ricaricamento li aggiorna a quelli appena messi in cache dal nuovo worker.
+          if (newWorker.state === 'activated') showUpdateBanner();
+        });
+      });
+    }).catch(() => { /* nessun problema: la pagina funziona comunque senza cache offline aggiuntiva */ });
   });
 }
+
+function showUpdateBanner() {
+  const banner = document.getElementById('update-banner');
+  if (banner) banner.classList.add('show');
+}
+
+function applyPendingUpdate() {
+  location.reload();
+}
+
+// ===================== Banner "sei offline" =====================
+// Solo un avviso informativo: non blocca nulla, dato che (fuori da qualche fetch di rete non
+// presente in questa pagina) tutto continua a funzionare anche offline sia da file locale sia,
+// una volta messo in cache dal service worker, da versione online.
+function updateOfflineBanner() {
+  const banner = document.getElementById('offline-banner');
+  if (banner) banner.classList.toggle('show', !navigator.onLine);
+}
+window.addEventListener('online', updateOfflineBanner);
+window.addEventListener('offline', updateOfflineBanner);
 
 // Prompt nativo di installazione (solo Android/Chrome; su iOS Safari non esiste questa API,
 // l'utente installa comunque manualmente da "Condividi" -> "Aggiungi alla schermata Home").
@@ -847,6 +939,7 @@ function shuffle(arr) {
 
 const LS_RESULTS_KEY = 'ai901_history_results_v1';
 const LS_PROGRESS_KEY = 'ai901_review_progress_v1';
+const LS_REVIEW_COMPLETED_KEY = 'ai901_review_completed_count_v1'; // contatore lifetime: domande uscite dal ripasso
 const REVIEW_WEIGHT_MULTIPLIER = 4.0;   // peso di estrazione delle domande in ripasso (vs 1.0 normale)
 const REVIEW_REQUIRED_CONSECUTIVE = 5;  // risposte corrette consecutive per uscire dal ripasso
 
@@ -875,6 +968,17 @@ function loadProgress() {
   } catch (e) { return {}; }
 }
 function saveProgress(obj) { safeSetLS(LS_PROGRESS_KEY, JSON.stringify(obj)); }
+
+function loadReviewCompletedCount() {
+  const raw = safeGetLS(LS_REVIEW_COMPLETED_KEY);
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+function incrementReviewCompletedCount() {
+  const n = loadReviewCompletedCount() + 1;
+  safeSetLS(LS_REVIEW_COMPLETED_KEY, String(n));
+  return n;
+}
 
 // Stato di ripasso corrente: chiave = reviewKeyFor(domanda), valore = {questionKey,
 // consecutiveCorrectCount, totalWrongCount, lastWrongAt, lastAnsweredAt}. Contiene SOLO le
@@ -994,12 +1098,74 @@ function refreshHomeReviewUI() {
   if (soloBtn) soloBtn.disabled = count === 0;
   const reviewBtn = document.getElementById('btn-show-reviewqueue');
   if (reviewBtn) reviewBtn.textContent = count > 0 ? ('Domande in ripasso (' + count + ')') : 'Domande in ripasso';
+  refreshStreakUI();
+}
+
+// ===================== Streak e traguardi (motivazionale) =====================
+// Calcola giorni consecutivi di allenamento dalle date gia' presenti nello storico risultati
+// (nessun nuovo storage necessario per lo streak in se': solo un contatore lifetime separato
+// per le domande "superate" in ripasso, che lo storico dei risultati non traccia).
+function computeStreak(results) {
+  if (results.length === 0) return { current: 0, best: 0 };
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const toDayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+
+  const days = Array.from(new Set(results.map(r => toDayStart(r.date)))).sort((a, b) => a - b);
+
+  let best = 1, run = 1;
+  for (let i = 1; i < days.length; i++) {
+    const diff = Math.round((days[i] - days[i - 1]) / dayMs);
+    run = (diff === 1) ? run + 1 : 1;
+    best = Math.max(best, run);
+  }
+
+  const today = toDayStart(Date.now());
+  const lastDay = days[days.length - 1];
+  const diffFromToday = Math.round((today - lastDay) / dayMs);
+
+  let current = 0;
+  if (diffFromToday <= 1) { // streak ancora "viva": ultimo test oggi o ieri
+    current = 1;
+    for (let i = days.length - 1; i > 0; i--) {
+      const diff = Math.round((days[i] - days[i - 1]) / dayMs);
+      if (diff === 1) current++; else break;
+    }
+  }
+
+  return { current, best };
+}
+
+function refreshStreakUI() {
+  const card = document.getElementById('streak-card');
+  if (!card) return;
+
+  const results = loadResults();
+  if (results.length === 0) { card.style.display = 'none'; return; }
+
+  const streak = computeStreak(results);
+  card.style.display = 'block';
+  document.getElementById('streak-current').textContent = streak.current;
+  document.getElementById('streak-best').textContent = streak.best;
+  document.getElementById('streak-tests').textContent = results.length;
+  document.getElementById('streak-reviewed').textContent = loadReviewCompletedCount();
 }
 
 function beginQuizWithPool(pool) {
   state.pool = pool;
   state.current = 0;
-  state.answers = state.pool.map(q => ({ selected: [], locked: false, confirmed: false }));
+  // "order" e' l'ordine di visualizzazione delle risposte per questa domanda in questo
+  // tentativo (permutazione degli indici originali di q.answers), rimescolato ad ogni nuova
+  // estrazione cosi' non ci si abitua alla posizione invece che al contenuto — importante
+  // soprattutto per il ripasso mirato, dove la stessa domanda puo' ripresentarsi piu' volte.
+  // Gli indici restano quelli ORIGINALI (dataset.idx, st.selected, correttezza, ecc. non
+  // cambiano): "order" influenza solo l'ORDINE con cui vengono disegnate le opzioni.
+  state.answers = state.pool.map(q => ({
+    selected: [],
+    locked: false,
+    confirmed: false,
+    order: shuffle(q.answers.map((_, i) => i)),
+  }));
   state.startedAt = Date.now();
   showScreen('screen-quiz');
   renderQuestion();
@@ -1058,7 +1224,9 @@ function renderQuestion() {
   container.innerHTML = '';
   const multi = isMulti(q);
 
-  q.answers.forEach((a, idx) => {
+  const displayOrder = st.order || q.answers.map((_, i) => i); // fallback per risultati storici senza "order"
+  displayOrder.forEach((idx) => {
+    const a = q.answers[idx];
     const opt = document.createElement('div');
     opt.className = 'answer-opt' + (multi ? ' multi' : '');
     opt.dataset.idx = idx;
@@ -1207,6 +1375,7 @@ function updateReviewProgress() {
       progress.lastAnsweredAt = now;
       if (progress.consecutiveCorrectCount >= REVIEW_REQUIRED_CONSECUTIVE) {
         delete reviewProgress[key]; // ripasso completato, torna al peso normale
+        incrementReviewCompletedCount(); // contatore lifetime per la card "Il tuo percorso"
       }
     } else {
       let progress = reviewProgress[key];
@@ -1315,7 +1484,11 @@ function showReview() {
 
     const ansWrap = document.createElement('div');
     ansWrap.className = 'answers';
-    q.answers.forEach((a, idx) => {
+    // Stesso ordine visto durante il quiz (non un nuovo rimescolamento), per coerenza con
+    // quanto l'utente ha effettivamente visto.
+    const reviewOrder = st.order || q.answers.map((_, oi) => oi);
+    reviewOrder.forEach((idx) => {
+      const a = q.answers[idx];
       const opt = document.createElement('div');
       opt.className = 'answer-opt locked';
       if (a.correct) opt.classList.add('correct-reveal');
@@ -1502,6 +1675,7 @@ function showReviewQueue() {
 applyBranding();
 applyPrimaryLang(loadPrimaryLang());
 applyFontScale(loadFontScale());
+updateOfflineBanner();
 buildCountGrid();
 refreshHomeReviewUI();
 </script>
