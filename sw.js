@@ -5,7 +5,7 @@
 // aperte come file locale (file://), dove però l'offline funziona comunque perché il file è già
 // interamente sul dispositivo.
 
-const CACHE_NAME = 'ai901-quiz-v3';
+const CACHE_NAME = 'ai901-quiz-v4';
 const ASSETS = [
   './AI901-Quiz-Web.html',
   './exam-config.js',
@@ -33,6 +33,13 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  // La Cache API accetta solo richieste http/https: alcune estensioni del browser (es. gestori
+  // di password, ad-blocker) fanno fetch di risorse con schema "chrome-extension://" (o simili)
+  // dentro il contesto della pagina, che il service worker intercetta comunque essendo nel suo
+  // scope. cache.put() su una di queste richieste lancia un TypeError non gestito ("Request
+  // scheme ... is unsupported"): queste richieste vanno semplicemente ignorate (passate alla
+  // rete senza tentare di metterle in cache), non riguardano mai i file di questa app.
+  if (!/^https?:$/.test(new URL(event.request.url).protocol)) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
