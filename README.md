@@ -37,13 +37,13 @@ const QUESTIONS = [ /* array di oggetti domanda, stesso schema già usato: testo
 const IMAGES = { /* mappa "nomeImmagine": "data:image/...;base64,..." per le domande che referenziano un'immagine */ };
 ```
 
-Lo schema interno delle domande non è cambiato rispetto alla versione precedente (stesso formato usato finora per le 594 domande AI-901): per una nuova certificazione basta generare un file con lo stesso schema ma contenuti diversi.
+Lo schema interno delle domande non è cambiato rispetto alla versione precedente (stesso formato usato finora per le 601 domande AI-901): per una nuova certificazione basta generare un file con lo stesso schema ma contenuti diversi.
 
 **Nota:** l'icona e il nome dell'app installata (vedi sezione PWA più sotto) restano fissi in `manifest.webmanifest` e nei file icona — quelli, a differenza dei 2 file dati, vanno modificati a mano per ogni nuova certificazione se si vuole un'icona/nome diversi.
 
 ## Cosa include
 
-- Tutte le 594 domande correnti (in `exam-questions.js`), quindi funziona anche offline.
+- Tutte le 601 domande correnti (in `exam-questions.js`), quindi funziona anche offline.
 - Testo della domanda e delle risposte mostrato **sempre in inglese e italiano insieme**, senza bisogno di premere un pulsante di traduzione.
 - **Selettore lingua principale** (bottoni 🇮🇹 Italiano / 🇬🇧 English in alto): sceglie quale delle due lingue viene mostrata più grande e in evidenza in domande, risposte e spiegazioni (l'altra resta visibile ma più piccola e attenuata). La scelta è salvata in `localStorage` (`ai901_primary_lang`) e viene ricordata alle visite successive.
 - **Controllo dimensione testo** (bottoni "A−" / "A+" in alto): ingrandisce o rimpicciolisce tutti i caratteri della pagina in 5 passi. La scelta è salvata in `localStorage` (`ai901_font_scale`) e viene ricordata alle visite successive.
@@ -85,10 +85,7 @@ Lo schema interno delle domande non è cambiato rispetto alla versione precedent
 
 ## Cronologia contenuti del dataset
 
-- **01/09/2026**: 434 domande iniziali.
-- **03/09/2026**: +50 domande generate da IA (distribuzione pesata sulle percentuali ufficiali AI-901) → 484 domande.
-- **16/09/2026**: +30 domande su Principi di IA responsabile e +30 su Azure AI Document Intelligence (generate da IA) → 544 domande; poi +50 domande dedicate a **Microsoft Foundry** (generate da IA, categoria "Generative AI": prompt engineering, catalogo modelli e distribuzione, Foundry SDK, agenti/Agent Service, visione multimodale, Azure Speech in Foundry Tools, Azure Content Understanding) → **594 domande totali**. Le domande su Foundry sono ispirate ai sotto-argomenti ufficiali dell'outline "Implement AI solutions by using Microsoft Foundry" dell'esame AI-901, con link "Fonte:" verso la documentazione Microsoft Learn corrente (learn.microsoft.com/.../azure/foundry/...).
 
 ## Come aggiornarla in futuro
 
-Il contenuto di `exam-questions.js` è una **fotografia** delle domande al momento della generazione (ultimo aggiornamento: 16/09/2026, 594 domande). Se in futuro vengono aggiunte nuove domande in `Data/questions.json` dell'app desktop, questo file non si aggiorna da solo: va rigenerato (basta richiedere una nuova generazione, il procedimento è lo stesso già usato — nessuna modifica viene fatta all'app desktop né al suo `questions.json` in questo processo, questa cartella resta un progetto completamente separato). `AI901-Quiz-Web.html` invece non ha più bisogno di essere rigenerato per un semplice aggiornamento delle domande: basta sostituire `exam-questions.js` (e, se necessario, `exam-config.js`).
+Il contenuto di `exam-questions.js` è una **fotografia** delle domande al momento della generazione (ultimo aggiornamento: 17/09/2026, 601 domande). Se in futuro vengono aggiunte nuove domande in `Data/questions.json` dell'app desktop, questo file non si aggiorna da solo: va rigenerato (basta richiedere una nuova generazione, il procedimento è lo stesso già usato — nessuna modifica viene fatta all'app desktop né al suo `questions.json` in questo processo, questa cartella resta un progetto completamente separato). `AI901-Quiz-Web.html` invece non ha più bisogno di essere rigenerato per un semplice aggiornamento delle domande: basta sostituire `exam-questions.js` (e, se necessario, `exam-config.js`).
