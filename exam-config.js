@@ -16,7 +16,7 @@ const SETTINGS = {
 
   // Testo mostrato in fondo alla Home, dopo il conteggio automatico delle domande
   // (es. "484 domande disponibili \u00b7 <datasetNote>"). Aggiornalo quando cambi il dataset.
-  "datasetNote": "generato il 01/09/2026, aggiornato il 17/09/2026",
+  "datasetNote": "generato il 01/09/2026, aggiornato il 17/09/2026 (3)",
 
   // Consiglio di studio mostrato in Home in una card sotto "Il tuo percorso".
   // Facoltativo: se "studyTip" viene rimosso o lasciato null, la card non viene mostrata.
