@@ -1,5 +1,5 @@
 # AI-901 Quiz Web (versione mobile)
-
+https://expriviapaolo.github.io/AI-901Simulator/AI901-Quiz-Web.html 
 Pagina HTML autosufficiente (nessuna connessione internet richiesta dopo l'apertura, nessuna installazione) che replica in versione ridotta il simulatore AI-901 desktop, pensata per essere usata da smartphone Android tramite l'app OneDrive.
 
 **File principale:** `AI901-Quiz-Web.html` — apri semplicemente questo file (insieme agli altri file di questa cartella, che deve restare sincronizzata) con un browser (Chrome, ecc.).
