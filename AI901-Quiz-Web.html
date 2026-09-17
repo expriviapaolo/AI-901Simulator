@@ -512,6 +512,33 @@
     font-size: 0.9rem;
   }
 
+  /* Card "Consiglio di studio" (contenuto definito in exam-config.js, vedi renderStudyTip()). */
+  .study-tip-intro {
+    margin: 0 0 8px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .study-tip-list {
+    margin: 0 0 12px;
+    padding-left: 1.2em;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .study-tip-list li {
+    font-size: 0.92rem;
+    line-height: 1.4;
+  }
+  .study-tip-list .study-tip-term {
+    font-weight: 700;
+    color: var(--accent2);
+  }
+  .study-tip-conclusion {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+
   /* Statistiche per area: una riga per categoria, ordinate dalla più debole (in cima) alla
      più forte, con una barra di sfondo proporzionale alla percentuale di risposte corrette. */
   .cat-stat-row {
@@ -624,6 +651,15 @@
         <div class="hstat"><div class="hstat-val" id="streak-tests">0</div><div class="hstat-lbl">✅ Test completati</div></div>
         <div class="hstat"><div class="hstat-val" id="streak-reviewed">0</div><div class="hstat-lbl">🎯 Domande superate in ripasso</div></div>
       </div>
+    </div>
+
+    <!-- Card facoltativa con un consiglio di studio, definito in exam-config.js (SETTINGS.studyTip).
+         Nascosta automaticamente se studyTip non è presente/valido (vedi renderStudyTip()). -->
+    <div class="card" id="study-tip-card" style="display:none;">
+      <h2 class="section-title" id="study-tip-title">Consiglio di studio</h2>
+      <p class="study-tip-intro" id="study-tip-intro"></p>
+      <ul class="study-tip-list" id="study-tip-list"></ul>
+      <p class="study-tip-conclusion" id="study-tip-conclusion"></p>
     </div>
 
     <div class="card">
@@ -896,6 +932,47 @@ function applyBranding() {
   if (footerEl) {
     footerEl.textContent = QUESTIONS.length + ' domande disponibili' + (SETTINGS.datasetNote ? ' · ' + SETTINGS.datasetNote : '');
   }
+}
+
+// ===================== Card "Consiglio di studio" (da exam-config.js) =====================
+// Contenuto interamente definito in SETTINGS.studyTip (titolo, intro, elenco termine->significato,
+// conclusione): questo script si limita a leggerlo e disegnarlo. Se SETTINGS.studyTip non è
+// presente/valido, la card resta nascosta (utile per un'altra certificazione senza questo consiglio).
+function renderStudyTip() {
+  const card = document.getElementById('study-tip-card');
+  if (!card) return;
+
+  const tip = SETTINGS.studyTip;
+  const items = tip && Array.isArray(tip.items) ? tip.items : [];
+  if (!tip || items.length === 0) {
+    card.style.display = 'none';
+    return;
+  }
+
+  const titleEl = document.getElementById('study-tip-title');
+  if (titleEl) titleEl.textContent = tip.title || 'Consiglio di studio';
+
+  const introEl = document.getElementById('study-tip-intro');
+  if (introEl) introEl.textContent = tip.intro || '';
+
+  const listEl = document.getElementById('study-tip-list');
+  if (listEl) {
+    listEl.innerHTML = '';
+    items.forEach((item) => {
+      const li = document.createElement('li');
+      const term = document.createElement('span');
+      term.className = 'study-tip-term';
+      term.textContent = item.term || '';
+      li.appendChild(term);
+      li.appendChild(document.createTextNode(' → ' + (item.meaning || '')));
+      listEl.appendChild(li);
+    });
+  }
+
+  const conclusionEl = document.getElementById('study-tip-conclusion');
+  if (conclusionEl) conclusionEl.textContent = tip.conclusion || '';
+
+  card.style.display = 'block';
 }
 
 // ===================== Lingua principale (localStorage) =====================
@@ -1811,6 +1888,7 @@ function showReviewQueue() {
 }
 
 applyBranding();
+renderStudyTip();
 applyPrimaryLang(loadPrimaryLang());
 applyFontScale(loadFontScale());
 updateOfflineBanner();
