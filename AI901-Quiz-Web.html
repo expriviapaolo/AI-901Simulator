@@ -1412,7 +1412,8 @@ function renderQuestion() {
   });
 
   document.getElementById('btn-confirm').style.display = (multi && !st.locked) ? 'block' : 'none';
-  document.getElementById('btn-next').disabled = !st.locked;
+  const simSingleReady = (state.mode === 'simulazione' && !multi && !st.locked && st.selected.length > 0);
+  document.getElementById('btn-next').disabled = !st.locked && !simSingleReady;
 
   renderExplain(q, st);
 }
@@ -1425,6 +1426,11 @@ function pickAnswer(idx, multi) {
     const pos = st.selected.indexOf(idx);
     if (pos >= 0) st.selected.splice(pos, 1);
     else st.selected.push(idx);
+  } else if (state.mode === 'simulazione') {
+    // In modalità simulazione, per le domande a risposta singola la scelta
+    // resta modificabile: l'utente può cambiare risposta cliccandone un'altra
+    // e la blocca solo avanzando con il pulsante "Avanti".
+    st.selected = [idx];
   } else {
     st.selected = [idx];
     st.locked = true;
@@ -1480,7 +1486,18 @@ function splitDescription(desc) {
   return { text: desc, url: null };
 }
 
+function lockPendingSelection(i) {
+  // In modalità simulazione la risposta a scelta singola resta modificabile
+  // finché non si avanza/termina: qui la si blocca definitivamente.
+  const q = state.pool[i];
+  const st = state.answers[i];
+  if (state.mode === 'simulazione' && !isMulti(q) && !st.locked && st.selected.length > 0) {
+    st.locked = true;
+  }
+}
+
 function nextQuestion() {
+  lockPendingSelection(state.current);
   if (state.current < state.pool.length - 1) {
     state.current++;
     renderQuestion();
@@ -1490,6 +1507,7 @@ function nextQuestion() {
 }
 
 function endQuizEarly() {
+  lockPendingSelection(state.current);
   const unanswered = state.answers.filter(a => !a.locked).length;
   if (unanswered > 0) {
     const ok = confirm('Ci sono ancora ' + unanswered + ' domande senza risposta. Vuoi comunque terminare il test? Il risultato non verrà salvato nello storico.');
