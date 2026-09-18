@@ -232,6 +232,12 @@
     background: rgba(79,140,255,0.16);
     color: var(--accent2);
   }
+  .coverage-progress {
+    margin: 10px 0 0;
+    font-size: 0.8rem;
+    color: var(--muted, #8a93a6);
+    text-align: center;
+  }
 
   .btn-primary {
     display: block;
@@ -680,6 +686,7 @@
       <h2 class="section-title">Numero di domande</h2>
       <div class="count-grid" id="count-grid"></div>
       <button class="btn-secondary" id="btn-solo-ripasso" onclick="startReviewOnlyQuiz()" title="Avvia subito un test con tutte le domande attualmente in ripasso, nella modalità selezionata sopra.">Solo ripasso</button>
+      <p class="coverage-progress" id="coverage-progress" title="Ogni nuovo test pesca prima tra le domande non ancora proposte in questo ciclo, così tutto il dataset viene coperto prima di ricominciare da capo."></p>
     </div>
 
     <button class="btn-primary" id="btn-start" onclick="startQuiz()">Inizia test</button>
@@ -1059,6 +1066,7 @@ function shuffle(arr) {
 const LS_RESULTS_KEY = 'ai901_history_results_v1';
 const LS_PROGRESS_KEY = 'ai901_review_progress_v1';
 const LS_REVIEW_COMPLETED_KEY = 'ai901_review_completed_count_v1'; // contatore lifetime: domande uscite dal ripasso
+const LS_COVERAGE_SEEN_KEY = 'ai901_coverage_seen_v1'; // domande gia' proposte nel ciclo di copertura corrente
 const REVIEW_WEIGHT_MULTIPLIER = 4.0;   // peso di estrazione delle domande in ripasso (vs 1.0 normale)
 const REVIEW_REQUIRED_CONSECUTIVE = 5;  // risposte corrette consecutive per uscire dal ripasso
 
@@ -1097,6 +1105,61 @@ function incrementReviewCompletedCount() {
   const n = loadReviewCompletedCount() + 1;
   safeSetLS(LS_REVIEW_COMPLETED_KEY, String(n));
   return n;
+}
+
+// ===================== Copertura garantita del pool di domande =====================
+// Problema: con un'estrazione puramente casuale ad ogni test, alcune domande potrebbero
+// statisticamente non uscire mai per molte sessioni. Soluzione: si tiene traccia (in
+// localStorage, persistente tra sessioni) di quali domande sono gia' state proposte almeno
+// una volta in questo "ciclo di copertura"; ogni nuovo test pesca PRIMA dalle domande mai
+// viste nel ciclo corrente, e solo se non bastano per riempire il numero richiesto completa
+// pescando (con lo stesso peso di ripasso 4x) da quelle gia' viste. Quando tutte le domande
+// del pool sono state viste almeno una volta, il ciclo si chiude e riparte da zero: garantisce
+// quindi una copertura completa e periodica, non solo "probabile".
+function loadCoverageSeen() {
+  try {
+    const raw = safeGetLS(LS_COVERAGE_SEEN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) { return new Set(); }
+}
+function saveCoverageSeen(set) { safeSetLS(LS_COVERAGE_SEEN_KEY, JSON.stringify(Array.from(set))); }
+
+// Segna come "viste in questo ciclo" tutte le domande del pool appena proposto (Allenamento,
+// Simulazione o Solo ripasso: contano tutte, cosi' non serve rivedere le stesse domande in un
+// test normale solo per "spuntarle" dopo che sono gia' comparse in un ripasso). Se il ciclo
+// risulta completo (tutte le domande del dataset viste), riparte automaticamente da zero.
+function markQuestionsSeen(pool) {
+  const seen = loadCoverageSeen();
+  pool.forEach(q => seen.add(reviewKeyFor(q)));
+  if (seen.size >= QUESTIONS.length) {
+    saveCoverageSeen(new Set()); // ciclo completato: reset per il prossimo giro di copertura
+  } else {
+    saveCoverageSeen(seen);
+  }
+}
+
+// Come weightedSample, ma pesca prima dalle domande mai viste nel ciclo di copertura corrente
+// (fino ad esaurirle), e completa con le altre solo se servono ulteriori domande per arrivare a n.
+function weightedSampleWithCoverage(pool, n) {
+  const seen = loadCoverageSeen();
+  const unseen = pool.filter(q => !seen.has(reviewKeyFor(q)));
+  const alreadySeen = pool.filter(q => seen.has(reviewKeyFor(q)));
+
+  if (unseen.length >= n) {
+    return weightedSample(unseen, n);
+  }
+  const fromUnseen = shuffle(unseen);
+  const fromSeen = weightedSample(alreadySeen, n - unseen.length);
+  return shuffle(fromUnseen.concat(fromSeen));
+}
+
+// Aggiorna l'indicatore di copertura in Home (es. "512/764 domande viste in questo ciclo").
+function refreshCoverageUI() {
+  const el = document.getElementById('coverage-progress');
+  if (!el) return;
+  const seen = loadCoverageSeen();
+  el.textContent = seen.size + ' / ' + QUESTIONS.length + ' domande viste in questo ciclo';
 }
 
 // ===================== Statistiche per area/argomento =====================
@@ -1246,6 +1309,7 @@ function refreshHomeReviewUI() {
   const reviewBtn = document.getElementById('btn-show-reviewqueue');
   if (reviewBtn) reviewBtn.textContent = count > 0 ? ('Domande in ripasso (' + count + ')') : 'Domande in ripasso';
   refreshStreakUI();
+  refreshCoverageUI();
 }
 
 // ===================== Streak e traguardi (motivazionale) =====================
@@ -1314,13 +1378,14 @@ function beginQuizWithPool(pool) {
     order: shuffle(q.answers.map((_, i) => i)),
   }));
   state.startedAt = Date.now();
+  markQuestionsSeen(pool);
   showScreen('screen-quiz');
   renderQuestion();
 }
 
 function startQuiz() {
   const n = Math.min(state.count, QUESTIONS.length);
-  beginQuizWithPool(weightedSample(QUESTIONS, n));
+  beginQuizWithPool(weightedSampleWithCoverage(QUESTIONS, n));
 }
 
 // Avvia subito un test con TUTTE le domande attualmente in ripasso (ignora "Numero di domande"),
