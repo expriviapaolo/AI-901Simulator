@@ -1,7 +1,8 @@
-# AI-901 Quiz Web url: 
+# AI-901 url: 
 https://expriviapaolo.github.io/AI-901Simulator/AI901-Quiz-Web.html 
 
 # AI-901 Quiz Web (versione mobile)
+
 Pagina HTML autosufficiente (nessuna connessione internet richiesta dopo l'apertura, nessuna installazione) che replica in versione ridotta il simulatore AI-901 desktop, pensata per essere usata da smartphone Android tramite l'app OneDrive.
 
 **File principale:** `AI901-Quiz-Web.html` — apri semplicemente questo file (insieme agli altri file di questa cartella, che deve restare sincronizzata) con un browser (Chrome, ecc.).
@@ -39,13 +40,13 @@ const QUESTIONS = [ /* array di oggetti domanda, stesso schema già usato: testo
 const IMAGES = { /* mappa "nomeImmagine": "data:image/...;base64,..." per le domande che referenziano un'immagine */ };
 ```
 
-Lo schema interno delle domande non è cambiato rispetto alla versione precedente (stesso formato usato finora per le 601 domande AI-901): per una nuova certificazione basta generare un file con lo stesso schema ma contenuti diversi.
+Lo schema interno delle domande non è cambiato rispetto alla versione precedente (stesso formato usato finora per le 764 domande AI-901): per una nuova certificazione basta generare un file con lo stesso schema ma contenuti diversi.
 
 **Nota:** l'icona e il nome dell'app installata (vedi sezione PWA più sotto) restano fissi in `manifest.webmanifest` e nei file icona — quelli, a differenza dei 2 file dati, vanno modificati a mano per ogni nuova certificazione se si vuole un'icona/nome diversi.
 
 ## Cosa include
 
-- Tutte le 601 domande correnti (in `exam-questions.js`), quindi funziona anche offline.
+- Tutte le 764 domande correnti (in `exam-questions.js`), quindi funziona anche offline.
 - Testo della domanda e delle risposte mostrato **sempre in inglese e italiano insieme**, senza bisogno di premere un pulsante di traduzione.
 - **Selettore lingua principale** (bottoni 🇮🇹 Italiano / 🇬🇧 English in alto): sceglie quale delle due lingue viene mostrata più grande e in evidenza in domande, risposte e spiegazioni (l'altra resta visibile ma più piccola e attenuata). La scelta è salvata in `localStorage` (`ai901_primary_lang`) e viene ricordata alle visite successive.
 - **Controllo dimensione testo** (bottoni "A−" / "A+" in alto): ingrandisce o rimpicciolisce tutti i caratteri della pagina in 5 passi. La scelta è salvata in `localStorage` (`ai901_font_scale`) e viene ricordata alle visite successive.
